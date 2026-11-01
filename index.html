@@ -133,7 +133,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     <ul class="rules">
       <li>Yan yana iki tatlıyı <b>kaydır</b> ya da sırayla <b>dokun</b>. Aynı türden 3 veya daha fazlası dizilince tabaktan alınır.</li>
       <li><b>4'lü veya 5'li</b> eşleşme bir <b>pırıltılı tatlı</b> bırakır. Pırıltılı tatlı eşleşince çevresindeki 3×3 alanı boşaltır.</li>
-      <li><b>Sipariş</b>: istenen tatlıdan yeterince topla. <b>Krema</b>: kremalı tabakların üstünde eşleşme yap; koyu pembe (çift kat) krema iki kez ister.</li>
+      <li><b>Sipariş</b>: istenen tatlıdan yeterince topla. <b>Krema</b>: çikolatalı kremalı tabakların üstünde eşleşme yap; koyu (çift kat) krema iki kez ister.</li>
       <li><b>Kurdele</b>: kurdeleli tatlı yer değiştiremez. Bir eşleşmeye dahil olunca kurdele çözülür.</li>
       <li>Siparişleri hamleler bitmeden tamamla. Artan hamle yıldız ve bonus puan getirir.</li>
     </ul>
@@ -656,11 +656,11 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
   }
 
   function drawPad(g, layers) { // krema: tabağın üstünde pembe krema lekesi
-    g.fillStyle = layers >= 2 ? "#f56fa1" : "#ffc2d9";
+    g.fillStyle = layers >= 2 ? "#5a2a17" : "#a0623f";
     g.beginPath();
     for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2, rr = 44 + (i % 2 ? 4 : -3); g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
     g.closePath(); g.fill();
-    g.strokeStyle = "rgba(255,255,255,0.8)"; g.lineWidth = layers >= 2 ? 5 : 3;
+    g.strokeStyle = layers >= 2 ? "#d9a679" : "rgba(255,235,215,0.85)"; g.lineWidth = layers >= 2 ? 5 : 3;
     g.beginPath(); g.arc(0, 0, 30, Math.PI * 1.1, Math.PI * 1.6); g.stroke();
     if (layers >= 2) { g.beginPath(); g.arc(0, 0, 38, Math.PI * 0.1, Math.PI * 0.6); g.stroke(); }
   }
