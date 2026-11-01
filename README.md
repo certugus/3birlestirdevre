@@ -1,10 +1,11 @@
-# Devre Taşları
+# Tatlı Atölyesi
 
-Elektronik bileşenlerle oynanan, tarayıcıda çalışan bir üçünü birleştir oyunu. Tek dosya (`index.html`), kurulum gerekmez.
+Tatlılarla oynanan, tarayıcıda çalışan bir üçünü birleştir oyunu. Tek dosya (`index.html`), kurulum gerekmez.
 
-- 100 seviye, 10 devre kartı, her seviyede rastgele üretilen kart şekli
-- Görevler: puan, sipariş (bileşen topla), lehim pedi, ESD bandı
-- 4'lü / 5'li eşleşme şarjlı parça bırakır (3×3 temizler)
+- 100 seviye, 10 bölüm (Pastane, Lokumcu, Baklavacı, Dondurmacı…), her seviyede rastgele üretilen tepsi şekli
+- Tatlılar: çilek, macaron, lokum, kurabiye, limon şekeri, cupcake
+- Görevler: puan, sipariş (tatlı topla), krema, kurdele
+- 4'lü / 5'li eşleşme pırıltılı tatlı bırakır (3×3 temizler)
 - İlerleme ve yıldızlar tarayıcıda saklanır
 
 ## Yayına alma (GitHub Pages)
