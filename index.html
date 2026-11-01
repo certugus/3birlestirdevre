@@ -436,7 +436,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     save.unlocked = Math.max(save.unlocked, Math.min(LEVELS, L + 1));
     persist(); updateHud();
     const last = L === LEVELS;
-    overlay(last ? "Tüm bölümler tamam" : "Seviye " + L + " tamam",
+    overlay(last ? "Tüm bölümler bitti" : "Seviye " + L + " bitti",
       `<div class="stars" aria-label="${stars} yıldız">${"★".repeat(stars)}<i>${"★".repeat(3 - stars)}</i></div>
        <p>Skor <strong>${score}</strong></p><p>${moves} hamle arttı, +${bonus} bonus</p>`,
       last ? [["Harita", showMap]] : [["Sonraki seviye", () => startLevel(L + 1)], ["Harita", showMap, true]]);
@@ -530,7 +530,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     $("view-game").hidden = true; $("view-map").hidden = false;
     $("o-chapter").textContent = "Seviye haritası";
     const done = Object.keys(save.stars).length, totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
-    $("o-summary").textContent = `${done} / ${LEVELS} seviye tamam · ★ ${totalStars} / ${LEVELS * 3}`;
+    $("o-summary").textContent = `${done} / ${LEVELS} seviye bitti · ★ ${totalStars} / ${LEVELS * 3}`;
     const map = $("map"); map.innerHTML = "";
     CHAPTERS.forEach((ch, ci) => {
       const sec = document.createElement("div"); sec.className = "chapter";
