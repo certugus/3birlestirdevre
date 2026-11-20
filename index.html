@@ -178,7 +178,15 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
   const SKEY = "devre-taslari-v2";
   let save = { unlocked: 1, stars: {}, best: {} };
   try { const s = JSON.parse(localStorage.getItem(SKEY) || "null"); if (s && s.unlocked) save = Object.assign(save, s); } catch (e) {}
-  const persist = () => { try { localStorage.setItem(SKEY, JSON.stringify(save)); } catch (e) {} };
+  let storageOK = true;
+  const persist = () => {
+    try { localStorage.setItem(SKEY, JSON.stringify(save)); storageOK = true; }
+    catch (e) { storageOK = false; }
+  };
+  // Safari (ITP) kullanılmayan sitelerin kaydını 7 gün sonra silebilir; kalıcı depolama iste.
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
+  // Yazma denemesi: gizli sekmede ya da depolama kapalıyken kullanıcıya haber verebilmek için.
+  try { localStorage.setItem(SKEY + "-t", "1"); localStorage.removeItem(SKEY + "-t"); } catch (e) { storageOK = false; }
 
   // ---------- Durum ----------
   let L = 1, spec = null, mask = [], pads = [], grid = [], nTypes = 6, goals = [];
@@ -348,6 +356,35 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
   }
   const goalDone = (g) => (g.k === "score" ? score >= g.need : g.have >= g.need);
 
+  // Yarım kalan seviyeyi sakla: iPhone'da Safari arka plandaki sekmeyi kapatıp sayfayı baştan yükleyebilir.
+  // Kayıt yalnızca tahta durgunken (hamle bitince) alınır, animasyon ortasında değil.
+  function snapshotRun() {
+    if (over || moves >= spec.moves) { if (save.run) { delete save.run; persist(); } return; } // hamle yapılmadıysa saklanacak bir şey yok
+    save.run = {
+      L, score, moves,
+      have: goals.map((g) => g.have),
+      pads: pads.map((row) => row.slice()),
+      grid: grid.map((row) => row.map((p) => (p ? [p.t, p.locked ? 1 : 0, p.charged ? 1 : 0] : null))),
+    };
+    persist();
+  }
+  function restoreRun(run) {
+    if (!run || run.L !== L || !Array.isArray(run.grid) || run.grid.length !== N) return false;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const q = run.grid[r] && run.grid[r][c];
+      if (!!q !== !!mask[r][c] || (q && !(q[0] >= 0 && q[0] < nTypes))) return false;
+    }
+    if (!Array.isArray(run.have) || run.have.length !== goals.length) return false;
+    grid = run.grid.map((row, r) => row.map((q, c) => {
+      if (!q) return null;
+      const p = mk(q[0], r, c); p.locked = !!q[1]; p.charged = !!q[2]; return p;
+    }));
+    pads = run.pads.map((row) => row.slice());
+    goals.forEach((g, i) => (g.have = Math.min(g.need, run.have[i] | 0)));
+    score = run.score | 0; moves = run.moves | 0;
+    return true;
+  }
+
   async function trySwap(a, b) {
     if (busy || over || !movable(a[0], a[1]) || !movable(b[0], b[1])) return false;
     busy = true; hint = null; sel = null; idleSince = performance.now();
@@ -357,6 +394,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     await resolve([a, b]);
     await afterTurn();
     busy = false; idleSince = performance.now();
+    snapshotRun();
     return true;
   }
 
@@ -434,6 +472,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     save.stars[L] = Math.max(save.stars[L] || 0, stars);
     save.best[L] = Math.max(save.best[L] || 0, score);
     save.unlocked = Math.max(save.unlocked, Math.min(LEVELS, L + 1));
+    delete save.run;
     persist(); updateHud();
     const last = L === LEVELS;
     overlay(last ? "Tüm bölümler bitti" : "Seviye " + L + " bitti",
@@ -444,9 +483,10 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
 
   function lose() {
     over = true;
+    delete save.run; persist();
     const left = goals.filter((g) => !goalDone(g)).map(goalText).join(", ");
     overlay("Hamleler bitti", `<p>Eksik kalan: ${left}</p><p>Skor <strong>${score}</strong></p>`,
-      [["Tekrar dene", () => startLevel(L)], ["Harita", showMap, true]]);
+      [["Tekrar dene", () => startLevel(L, true)], ["Harita", showMap, true]]);
   }
 
   function goalText(g) {
@@ -467,7 +507,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     o.hidden = false;
   }
 
-  function startLevel(n) {
+  function startLevel(n, fresh) {
     L = Math.max(1, Math.min(LEVELS, n));
     spec = makeSpec(L);
     mask = spec.mask; nTypes = spec.nTypes;
@@ -476,17 +516,21 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     goals = spec.goals.map((g) => ({ ...g, have: 0 }));
     score = 0; moves = spec.moves; over = false; busy = false; sel = null; hint = null;
     dying = []; sparks = []; popups = []; waves = [];
-    fillFresh();
-    spec.lockCells.forEach(([r, c]) => { if (grid[r][c]) grid[r][c].locked = true; });
-    if (!findMove()) shuffle();
+    const resumed = !fresh && restoreRun(save.run);
+    if (!resumed) {
+      fillFresh();
+      spec.lockCells.forEach(([r, c]) => { if (grid[r][c]) grid[r][c].locked = true; });
+      if (!findMove()) shuffle();
+    }
     $("overlay").hidden = true;
     $("view-map").hidden = true; $("view-game").hidden = false;
     resize();
     const ch = CHAPTERS[spec.chapter];
     $("o-chapter").textContent = `Bölüm ${spec.chapter + 1} · ${ch.n}`;
     buildGoalsUI(); buildBackground(); updateHud();
-    flash("Seviye " + L, spec.shape);
+    flash("Seviye " + L, resumed ? "Kaldığın yerden devam" : spec.shape);
     idleSince = performance.now();
+    snapshotRun();
   }
 
   // ---------- Gösterge ----------
@@ -530,7 +574,8 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
     $("view-game").hidden = true; $("view-map").hidden = false;
     $("o-chapter").textContent = "Seviye haritası";
     const done = Object.keys(save.stars).length, totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
-    $("o-summary").textContent = `${done} / ${LEVELS} seviye bitti · ★ ${totalStars} / ${LEVELS * 3}`;
+    $("o-summary").textContent = `${done} / ${LEVELS} seviye bitti · ★ ${totalStars} / ${LEVELS * 3}` +
+      (storageOK ? "" : " · Kayıt yapılamıyor: Gizli sekmeyi kapatıp normal sekmede aç");
     const map = $("map"); map.innerHTML = "";
     CHAPTERS.forEach((ch, ci) => {
       const sec = document.createElement("div"); sec.className = "chapter";
@@ -541,7 +586,7 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
         const n = ci * 10 + i, st = save.stars[n] || 0;
         const b = document.createElement("button"); b.className = "lv"; b.style.setProperty("--chip", ch.a);
         b.disabled = n > save.unlocked;
-        if (n === save.unlocked) b.classList.add("current");
+        if (save.run ? n === save.run.L : n === save.unlocked) b.classList.add("current");
         b.innerHTML = `<strong>${n}</strong><span>${"★".repeat(st)}<i>${"★".repeat(3 - st)}</i></span>`;
         b.setAttribute("aria-label", `Seviye ${n}${b.disabled ? ", kilitli" : `, ${st} yıldız`}`);
         b.addEventListener("click", () => startLevel(n));
@@ -855,17 +900,22 @@ h3 { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-sp
   });
 
   $("btn-map").addEventListener("click", showMap);
-  $("btn-restart").addEventListener("click", () => startLevel(L));
+  $("btn-restart").addEventListener("click", () => startLevel(L, true));
   $("btn-hint").addEventListener("click", () => { if (!busy && !over) hint = findMove(); });
 
   // ---------- Başlat ----------
   function start(data) {
     resize();
-    startLevel((data && data.L) || save.unlocked);
-    if (!(data && data.L)) showMap(); // ilk açılış haritadan başlar
+    const runL = save.run && save.run.L;
+    startLevel((data && data.L) || runL || save.unlocked);
+    if (!(data && data.L) && !runL) showMap(); // ilk açılış haritadan başlar, yarım seviye varsa ona döner
     requestAnimationFrame((t) => { last = t; frame(t); });
   }
   window.addEventListener("resize", resize);
+  // iOS Safari "beforeunload" olayını güvenilir göndermez; sayfa gizlenirken de kaydet.
+  const flush = () => { if (!busy) snapshotRun(); else persist(); };
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
   if (document.fonts) document.fonts.ready.then(buildBackground);
   const hot = window.claude && window.claude.hot;
   const boot = (data) => {
